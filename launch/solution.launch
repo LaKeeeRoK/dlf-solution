@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <param name="gui" type="boolean" value="$(env GUI)" />
+  <node name="simple_move" pkg="dlf-solution" type="simple_move3.py" output="screen" />
+  <!-- <node name="simple_move" pkg="dlf-solution" type="simple_move" output="screen" /> -->
+
+</launch>

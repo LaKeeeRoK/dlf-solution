@@ -1,0 +1,51 @@
+version: '3.9'
+name: 'drone_line_following'
+
+services:
+  scene:
+    image: registry.gitlab.com/roboforces-itmo/open-tasks/drone-line-follower/dlf-solution/scene:latest
+    container_name: dlf_scene
+    environment:
+      - DISPLAY
+      - XAUTORITY
+      - QT_X11_NO_MITSHM=1
+      - GUI=true
+    ipc: host
+    stdin_open: true
+    tty: true
+    networks:
+      - general
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /etc/localtime:/etc/localtime:ro
+      - /dev:/dev
+
+  solution:
+    image: registry.gitlab.com/roboforces-itmo/open-tasks/drone-line-follower/dlf-solution/base:latest
+    container_name: dlf_solution
+    environment:
+      - ROS_MASTER_URI=http://scene:11311
+      - DISPLAY
+      - XAUTORITY
+      - QT_X11_NO_MITSHM=1
+      - GUI=true
+    ipc: host
+    stdin_open: true
+    tty: true
+    command: ["/bin/bash", "-ci", "cd /ros_ws && catkin build $(catkin list -u -d /ros_ws/src/dlf-solution) && source devel/setup.bash && roslaunch dlf-solution solution.launch"]
+    depends_on: 
+      scene:
+        condition: service_healthy
+    networks:
+      - general
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /etc/localtime:/etc/localtime:ro
+      - /dev:/dev
+      - ./:/ros_ws/src/dlf-solution
+  
+networks:
+  general:
+    attachable: true
+    internal: false
+    driver: bridge
