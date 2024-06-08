@@ -155,8 +155,8 @@ class SimpleMover():
 
 
         ##################################
-        kp_z = 0.3; kd_z = 2
-        kp_x = 1 * 10**(-2)
+        kp_z = 2; kd_z = 2
+        kp_x = 1.5 * 10**(-2)
         kp_y = 1* 10**(-2)
 
         
@@ -187,6 +187,8 @@ class SimpleMover():
             if self.enabled_gui:
                 x_goal, y_goal = 160, 120
                 x_now, y_now = 160, 120
+                centr_x, centr_y = 160, 120
+                width, height = 0, 0
                 if self.Image1 is not None and self.Image2 is not None:
                     
 
@@ -195,6 +197,10 @@ class SimpleMover():
                     BW = cv2.inRange(verh, (0, 0, 0), (7, 7, 7))
                     contours=cv2.findContours(BW, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
                     contours=contours[0]
+                    cent = self.Image1[x_now -10:x_now+10, :]
+                    BW_all = cv2.inRange(cent, (0, 0, 0), (7, 7, 7))
+                    contours_cenrt = cv2.findContours(BW_all, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+                    contours_cenrt=contours_cenrt[0]
                     if contours:
                         contours=sorted(contours, key=cv2.contourArea, reverse=True)
                         cv2.drawContours(verh, contours, 0, (255, 0, 255), 5)
@@ -211,32 +217,40 @@ class SimpleMover():
                             cv2.rectangle(self.Image1, (x_goal, y_goal), (x_goal + 3, y_goal + 3), (255, 0, 0), 5)
                             
                             cv2.circle(self.Image1, (x_now, y_now), 5, (0, 0, 255), -1)
-
-                            
+                    
+                    # if contours_cenrt:
+                    #     contours_cenrt=sorted(contours_cenrt, key=cv2.contourArea, reverse=True)
+                    #     if len(contours) > 1:
+                    #         cv2.drawContours(cent, contours_cenrt, 1, (255, 0, 255), 5)
+                    #         (x_c, y_c, w_c, h_c) = cv2.boundingRect(contours_cenrt[0])
+                    #         (x2_c, y2_c, w2_c, h2_c) = cv2.boundingRect(contours[1])
+                    #         centr_x = (x_c + x2_c) //2 + (w_c + w2_c) // 4 
+                    #         centr_y = (y_c + y2_c) // 2 + (h_c + h2_c) // 4 + y_now
+                    #         cv2.circle(self.Image1, (centr_x, centr_y), 5, (0, 0, 255), -1)
 
                     
 
                     cv2.imshow("Down view camera from Robot", self.Image1)
                     cv2.imshow("Front view camera from Robot", self.Image2)
-                    #cv2.imshow("2", BW)
+                    cv2.imshow("2", BW_all)
                     cv2.waitKey(3)
             #Поворот
             #var = [x_goal, y_goal, x_now, y_now].copy()
             #y_goal, x_goal, y_now, x_now = var
-            ey = x_now - x_goal
+            ey = x_now - x_goal#cenrta_x
             ex = y_now - y_goal
             etetta = atan2(ey, ex)
             
 
             Vx, Vy = ex*kp_x, ey*kp_y
-            Vz_ang = etetta * 0.8
+            Vz_ang = etetta * 1.5
 
 
             rospy.loginfo(f"goal {x_goal, y_goal}, now {x_now, y_now, z}\n e ={ex, ey}, V= {Vx, Vy, Vz}, z={z}")
-            if time.time() - time_start >= 10:
+            if time.time() - time_start >= 15:
                 twist_msg.linear.x = Vx
-                twist_msg.linear.y = Vy
                 twist_msg.angular.z = Vz_ang
+            twist_msg.linear.y = Vy
             self.cmd_vel_pub.publish(twist_msg)
             self.rate.sleep()
 
