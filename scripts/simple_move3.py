@@ -62,6 +62,25 @@ class SimpleMover():
             print("Error while try to enable motors: ")
             print(e)
 
+    def points(self):
+        image = cv2.resize(self.Image1,(600,600))
+        XY=[]
+        for i in range(9,-1,-1):
+            obrezimage = image[60*i:60*(i+1), 0:600]  
+            BW=cv2.inRange(obrezimage,(0,0,0),(7,7,7))  
+            contours=cv2.findContours(BW, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+            contours=contours[0]
+            if len(contours) > 1:
+                contours=sorted(contours, key=cv2.contourArea, reverse=True)
+                (x,y,w,h)=cv2.boundingRect(contours[0])
+                (x2,y2,w2,h2)=cv2.boundingRect(contours[1])
+                xx=(x+x2)//2+(w+w2)//4
+                yy=60*i+(y+y2)//2+(h+h2)//4
+                cv2.rectangle(image,(xx,yy), (xx+3, yy+3),(255,0,0), 5)
+                #XY.append([(xx-300)//3,(yy-300)//(-3)])
+                XY.append([xx, yy]) 
+        return XY,image
+
     def take_off(self):
         self.enable_motors()
         start_time = time.time()
@@ -156,8 +175,9 @@ class SimpleMover():
 
         ##################################
         kp_z = 2; kd_z = 2
-        kp_x = 1.5 * 10**(-2)
-        kp_y = 1* 10**(-2)
+        kp_x = 0.5 * 10**(-2)
+        kp_y = 6* 10**(-3)
+        kp_angz = 1.5
 
         
         time_start = time.time()
@@ -185,38 +205,67 @@ class SimpleMover():
             
             #rospy.loginfo(f"Vz = {Vz}, sonar_z = {z}")
             if self.enabled_gui:
-                x_goal, y_goal = 160, 120
-                x_now, y_now = 160, 120
+                x_goal, y_goal = 300, 300
+                x_now, y_now = 300, 300
+                y_goal_centr = 300
+                x_goal_centr = 300
                 centr_x, centr_y = 160, 120
                 width, height = 0, 0
                 if self.Image1 is not None and self.Image2 is not None:
                     
+                    image2 = cv2.resize(self.Image2,(600,600))
 
-                    #Распознование дороги с нижней камеры
-                    verh = self.Image1[0:100, :]
-                    BW = cv2.inRange(verh, (0, 0, 0), (7, 7, 7))
-                    contours=cv2.findContours(BW, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-                    contours=contours[0]
-                    cent = self.Image1[x_now -10:x_now+10, :]
-                    BW_all = cv2.inRange(cent, (0, 0, 0), (7, 7, 7))
-                    contours_cenrt = cv2.findContours(BW_all, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-                    contours_cenrt=contours_cenrt[0]
-                    if contours:
-                        contours=sorted(contours, key=cv2.contourArea, reverse=True)
-                        cv2.drawContours(verh, contours, 0, (255, 0, 255), 5)
-                        if len(contours) > 1:
-                            cv2.drawContours(verh, contours, 1, (255, 0, 255), 5)
-                            (x, y, w, h) = cv2.boundingRect(contours[0])
-                            (x2, y2, w2, h2) = cv2.boundingRect(contours[1])
-                            x_goal = (x + x2) // 2 + (w + w2) // 4
-                            y_goal = (y + y2) // 2 + (h + h2) // 4
+                    XY, image1 = self.points()
+                    try:
+                        x_goal, y_goal = XY[-1]
+                    except:
+                        pass
+                    
+                    for el in XY:
+                        #cv2.circle(image1, (el[0], el[1]), 5, (0, 0, 255), -1)
+                        pass
+                    cv2.circle(image1, (x_goal, y_goal), 5, (0, 0, 255), -1)
+                    cv2.circle(image1, (x_now, y_now), 5, (255, 0, 0), -1)
+                    try:
+                        cv2.circle(image1, (XY[5][0], XY[5][1]), 5, (255, 255, 0), -1)
+                        cv2.circle(image1, (XY[4][0], XY[4][1]), 5, (255, 255, 0), -1)
+                        x_goal_centr = (XY[4][0]+XY[5][0])//2
+                        y_goal_centr = (XY[4][1] + XY[5][1])//2
+                        cv2.circle(image1, (x_goal_centr, y_goal_centr), 5, (255, 255, 255), -1)
+                    except:
+                        pass
 
-                            x_now, y_now = self.Image1.shape[1] // 2, self.Image1.shape[0] // 2
-                            cv2.rectangle(self.Image1, (x, y), (x + w, y + h), (0, 0, 255), 5)
-                            cv2.rectangle(self.Image1, (x2, y2), (x2 + w2, y2 + h2), (0, 0, 255), 5)
-                            cv2.rectangle(self.Image1, (x_goal, y_goal), (x_goal + 3, y_goal + 3), (255, 0, 0), 5)
+
+                    cv2.imshow("Down view camera from Robot", image1)
+                    cv2.imshow("Front view camera from Robot", image2)
+                    cv2.waitKey(3)
+
+
+                    # #Распознование дороги с нижней камеры
+                    # verh = self.Image1[0:100, :]
+                    # BW = cv2.inRange(verh, (0, 0, 0), (7, 7, 7))
+                    # contours=cv2.findContours(BW, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+                    # contours=contours[0]
+                    # cent = self.Image1[x_now -10:x_now+10, :]
+                    # BW_all = cv2.inRange(cent, (0, 0, 0), (7, 7, 7))
+                    # contours_cenrt = cv2.findContours(BW_all, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+                    # contours_cenrt=contours_cenrt[0]
+                    # if contours:
+                    #     contours=sorted(contours, key=cv2.contourArea, reverse=True)
+                    #     cv2.drawContourospy.loginfo(XY)rs(verh, contours, 0, (255, 0, 255), 5)
+                    #     if len(contours) rospy.loginfo(XY)> 1:
+                    #         cv2.drawContours(verh, contours, 1, (255, 0, 255), 5)
+                    #         (x, y, w, h) = cv2.boundingRect(contours[0])
+                    #         (x2, y2, w2, h2) = cv2.boundingRect(contours[1])
+                    #         x_goal = (x + x2) // 2 + (w + w2) // 4
+                    #         y_goal = (y + y2) // 2 + (h + h2) // 4
+
+                    #         x_now, y_now = self.Image1.shape[1] // 2, self.Image1.shape[0] // 2
+                    #         cv2.rectangle(self.Image1, (x, y), (x + w, y + h), (0, 0, 255), 5)
+                    #         cv2.rectangle(self.Image1, (x2, y2), (x2 + w2, y2 + h2), (0, 0, 255), 5)
+                    #         cv2.rectangle(self.Image1, (x_goal, y_goal), (x_goal + 3, y_goal + 3), (255, 0, 0), 5)
                             
-                            cv2.circle(self.Image1, (x_now, y_now), 5, (0, 0, 255), -1)
+                    #         cv2.circle(self.Image1, (x_now, y_now), 5, (0, 0, 255), -1)
                     
                     # if contours_cenrt:
                     #     contours_cenrt=sorted(contours_cenrt, key=cv2.contourArea, reverse=True)
@@ -230,26 +279,27 @@ class SimpleMover():
 
                     
 
-                    cv2.imshow("Down view camera from Robot", self.Image1)
-                    cv2.imshow("Front view camera from Robot", self.Image2)
-                    cv2.imshow("2", BW_all)
-                    cv2.waitKey(3)
+                    # cv2.imshow("Down view camera from Robot", self.Image1)
+                    # cv2.imshow("Front view camera from Robot", self.Image2)
+                    # cv2.imshow("2", BW_all)
+                    # cv2.waitKey(3)
             #Поворот
             #var = [x_goal, y_goal, x_now, y_now].copy()
             #y_goal, x_goal, y_now, x_now = var
-            ey = x_now - x_goal#cenrta_x
+            ey = x_now - x_goal_centr#cenrta_x
             ex = y_now - y_goal
-            etetta = atan2(ey, ex)
+            etetta = atan2(x_now - x_goal, ex)
             
 
             Vx, Vy = ex*kp_x, ey*kp_y
-            Vz_ang = etetta * 1.5
+            Vz_ang = etetta * kp_angz
 
 
-            rospy.loginfo(f"goal {x_goal, y_goal}, now {x_now, y_now, z}\n e ={ex, ey}, V= {Vx, Vy, Vz}, z={z}")
-            if time.time() - time_start >= 15:
+            rospy.loginfo(f"e = {ex, ey}\nV= {Vx, Vy, Vz},\n w = {Vz_ang}, z={z}")
+            if time.time() - time_start >= 5:
                 twist_msg.linear.x = Vx
-                twist_msg.angular.z = Vz_ang
+                pass
+            twist_msg.angular.z = Vz_ang
             twist_msg.linear.y = Vy
             self.cmd_vel_pub.publish(twist_msg)
             self.rate.sleep()
