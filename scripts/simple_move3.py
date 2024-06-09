@@ -80,6 +80,29 @@ class SimpleMover():
                 #XY.append([(xx-300)//3,(yy-300)//(-3)])
                 XY.append([xx, yy]) 
         return XY,image
+    
+    def RedCircle(self):
+        image2 = cv2.resize(self.Image2,(600,600))
+        BW=cv2.inRange(image2,(0,0,80),(10,10,255))  
+        contours=cv2.findContours(BW, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+        contours=contours[0]
+        xy, pr =0, 0
+        if contours:
+            contours=sorted(contours, key=cv2.contourArea, reverse=True)
+            cv2.drawContours(image2, contours, 0, (255,0,255), 5)
+            (x,y,w,h)=cv2.boundingRect(contours[0])
+            pr=(w*h/(600*600))*100
+            print(pr)
+            xx=(x*2+w)//2
+            yy=(y*2+h)//2
+            cv2.rectangle(image2,(xx,yy), (xx+3, yy+3),(255,0,0), 5)
+            cv2.imshow("555", BW)
+            x=((x*2+w)//2-300)//3
+            y=((y*2+h)//2-300)//(-3)
+            xy=[x,y]
+        return xy,pr,image2
+
+
 
     def take_off(self):
         self.enable_motors()
@@ -107,6 +130,7 @@ class SimpleMover():
                     cv2.imshow("Down view camera from Robot", self.Image1)
                     cv2.imshow("Front view camera from Robot", self.Image2)
                     cv2.waitKey(3)
+    
 
     def check_moving(self):
         self.take_off()
@@ -183,19 +207,15 @@ class SimpleMover():
         time_start = time.time()
         time_now = time_start
         e_now = goal_z
+
+        flag_start_obleta = False
+        time_conets_obleta = 0
         while not rospy.is_shutdown():
             twist_msg = Twist()
 
             #Z pose
             #rospy.loginfo(self.current_pose.position.z, self.sonar_height.range)
-            if self.sonar_z is not None:
-                z = self.sonar_z
-            e_last = e_now 
-            e_now = goal_z - z
-            time_last = time_now
-            time_now = time.time()
-            Vz = e_now * kp_z + (e_now - e_last) * (time_now - time_last) * kd_z
-            twist_msg.linear.z = Vz
+            
             
             
 
@@ -205,15 +225,18 @@ class SimpleMover():
             
             #rospy.loginfo(f"Vz = {Vz}, sonar_z = {z}")
             if self.enabled_gui:
+                
                 x_goal, y_goal = 300, 300
                 x_now, y_now = 300, 300
                 y_goal_centr = 300
                 x_goal_centr = 300
                 centr_x, centr_y = 160, 120
                 width, height = 0, 0
+                xy, pr = 0, 0
                 if self.Image1 is not None and self.Image2 is not None:
                     
-                    image2 = cv2.resize(self.Image2,(600,600))
+                    
+                    xy,pr, image2 = self.RedCircle()
 
                     XY, image1 = self.points()
                     try:
@@ -286,16 +309,45 @@ class SimpleMover():
             #Поворот
             #var = [x_goal, y_goal, x_now, y_now].copy()
             #y_goal, x_goal, y_now, x_now = var
+
+            #вычисление ошибок
             ey = x_now - x_goal_centr#cenrta_x
             ex = y_now - y_goal
             etetta = atan2(x_now - x_goal, ex)
             
-
+            #линейный xy, угловая z
             Vx, Vy = ex*kp_x, ey*kp_y
             Vz_ang = etetta * kp_angz
 
 
-            rospy.loginfo(f"e = {ex, ey}\nV= {Vx, Vy, Vz},\n w = {Vz_ang}, z={z}")
+            #линейня z 
+            if self.sonar_z is not None:
+                z = self.sonar_z
+            
+            if pr > 20 and time.time() > time_conets_obleta:
+                if not flag_start_obleta: flag_start_obleta = True
+            if flag_start_obleta:
+                time_conets_obleta = time.time() + 3
+                flag_start_obleta = False
+                
+            
+            if time.time() < time_conets_obleta:
+                rospy.loginfo(f"\nЛЕТИМ ВЫСОКО!")
+                goal_z = 3
+            else:
+                goal_z = 1.7
+            
+
+
+            e_last = e_now 
+            e_now = goal_z - z
+            time_last = time_now
+            time_now = time.time()
+            Vz = e_now * kp_z + (e_now - e_last) * (time_now - time_last) * kd_z
+            twist_msg.linear.z = Vz
+
+
+            rospy.loginfo(f"e = {ex, ey}\nV= {Vx, Vy, Vz},\n w = {Vz_ang}, z={z}\n {pr}")
             if time.time() - time_start >= 5:
                 twist_msg.linear.x = Vx
                 pass
